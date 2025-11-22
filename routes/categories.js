@@ -10,7 +10,7 @@ const router = express.Router();
 // @access  Public
 router.get("/", async (req, res) => {
   try {
-    const categories = await Category.find({ isActive: true }).sort("name");
+    const categories = await Category.find().sort("name");
     res.json({
       success: true,
       count: categories.length,
@@ -29,7 +29,14 @@ router.get("/", async (req, res) => {
 // @access  Public
 router.get("/:id", async (req, res) => {
   try {
-    const category = await Category.findById(req.params.id);
+    const categoryId = parseInt(req.params.id);
+    if (isNaN(categoryId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category ID",
+      });
+    }
+    const category = await Category.findOne({ categoryId: categoryId });
     if (!category) {
       return res.status(404).json({
         success: false,
@@ -83,10 +90,21 @@ router.post(
 // @access  Private/Admin
 router.put("/:id", async (req, res) => {
   try {
-    const category = await Category.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
+    const categoryId = parseInt(req.params.id);
+    if (isNaN(categoryId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category ID",
+      });
+    }
+    const category = await Category.findOneAndUpdate(
+      { categoryId: categoryId },
+      req.body,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
 
     if (!category) {
       return res.status(404).json({
@@ -112,7 +130,14 @@ router.put("/:id", async (req, res) => {
 // @access  Private/Admin
 router.delete("/:id", async (req, res) => {
   try {
-    const category = await Category.findById(req.params.id);
+    const categoryId = parseInt(req.params.id);
+    if (isNaN(categoryId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category ID",
+      });
+    }
+    const category = await Category.findOne({ categoryId: categoryId });
     if (!category) {
       return res.status(404).json({
         success: false,
