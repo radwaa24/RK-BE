@@ -199,9 +199,8 @@ router.delete("/:id", async (req, res) => {
       });
     }
 
-    // Soft delete
-    category.isActive = false;
-    await category.save();
+    // Actually delete the category from database
+    await Category.deleteOne({ _id: category._id });
 
     res.json({
       success: true,
