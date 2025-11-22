@@ -29,20 +29,37 @@ router.get("/", async (req, res) => {
 // @access  Public
 router.get("/:id", async (req, res) => {
   try {
-    const categoryId = parseInt(req.params.id);
-    if (isNaN(categoryId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid category ID",
-      });
+    const id = req.params.id;
+    let category = null;
+
+    // Try to parse as number first (categoryId)
+    const categoryId = parseInt(id);
+    if (!isNaN(categoryId)) {
+      category = await Category.findOne({ categoryId: categoryId });
     }
-    const category = await Category.findOne({ categoryId: categoryId });
+
+    // If not found by categoryId, try MongoDB _id (for backward compatibility)
+    if (!category) {
+      // Check if it's a valid MongoDB ObjectId format
+      if (id.match(/^[0-9a-fA-F]{24}$/)) {
+        category = await Category.findById(id);
+      } else {
+        // If it's not a valid ObjectId but also not found by categoryId, try _id anyway
+        try {
+          category = await Category.findById(id);
+        } catch (err) {
+          // Invalid ObjectId format, ignore
+        }
+      }
+    }
+
     if (!category) {
       return res.status(404).json({
         success: false,
         message: "Category not found",
       });
     }
+
     res.json({
       success: true,
       data: category,
@@ -90,21 +107,42 @@ router.post(
 // @access  Private/Admin
 router.put("/:id", async (req, res) => {
   try {
-    const categoryId = parseInt(req.params.id);
-    if (isNaN(categoryId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid category ID",
-      });
+    const id = req.params.id;
+    let category = null;
+
+    // Try to parse as number first (categoryId)
+    const categoryId = parseInt(id);
+    if (!isNaN(categoryId)) {
+      category = await Category.findOneAndUpdate(
+        { categoryId: categoryId },
+        req.body,
+        {
+          new: true,
+          runValidators: true,
+        }
+      );
     }
-    const category = await Category.findOneAndUpdate(
-      { categoryId: categoryId },
-      req.body,
-      {
-        new: true,
-        runValidators: true,
+
+    // If not found by categoryId, try MongoDB _id (for backward compatibility)
+    if (!category) {
+      // Check if it's a valid MongoDB ObjectId format
+      if (id.match(/^[0-9a-fA-F]{24}$/)) {
+        category = await Category.findByIdAndUpdate(id, req.body, {
+          new: true,
+          runValidators: true,
+        });
+      } else {
+        // If it's not a valid ObjectId but also not found by categoryId, try _id anyway
+        try {
+          category = await Category.findByIdAndUpdate(id, req.body, {
+            new: true,
+            runValidators: true,
+          });
+        } catch (err) {
+          // Invalid ObjectId format, ignore
+        }
       }
-    );
+    }
 
     if (!category) {
       return res.status(404).json({
@@ -130,14 +168,30 @@ router.put("/:id", async (req, res) => {
 // @access  Private/Admin
 router.delete("/:id", async (req, res) => {
   try {
-    const categoryId = parseInt(req.params.id);
-    if (isNaN(categoryId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid category ID",
-      });
+    const id = req.params.id;
+    let category = null;
+
+    // Try to parse as number first (categoryId)
+    const categoryId = parseInt(id);
+    if (!isNaN(categoryId)) {
+      category = await Category.findOne({ categoryId: categoryId });
     }
-    const category = await Category.findOne({ categoryId: categoryId });
+
+    // If not found by categoryId, try MongoDB _id (for backward compatibility)
+    if (!category) {
+      // Check if it's a valid MongoDB ObjectId format
+      if (id.match(/^[0-9a-fA-F]{24}$/)) {
+        category = await Category.findById(id);
+      } else {
+        // If it's not a valid ObjectId but also not found by categoryId, try _id anyway
+        try {
+          category = await Category.findById(id);
+        } catch (err) {
+          // Invalid ObjectId format, ignore
+        }
+      }
+    }
+
     if (!category) {
       return res.status(404).json({
         success: false,
