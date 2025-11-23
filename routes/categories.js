@@ -30,6 +30,16 @@ router.get("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const id = req.params.id;
+
+    // Validate ID parameter
+    if (!id || id === "undefined" || id === "null" || id.trim() === "") {
+      return res.status(400).json({
+        success: false,
+        message: "Category ID is required",
+        error: "Invalid or missing category ID",
+      });
+    }
+
     let category = null;
 
     // Try to parse as number first (categoryId)
@@ -56,7 +66,8 @@ router.get("/:id", async (req, res) => {
     if (!category) {
       return res.status(404).json({
         success: false,
-        message: "Category not found",
+        message: `Category with ID "${id}" not found`,
+        error: "Category does not exist",
       });
     }
 
@@ -65,9 +76,11 @@ router.get("/:id", async (req, res) => {
       data: category,
     });
   } catch (error) {
+    console.error("Get category error:", error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Failed to get category",
+      error: "Internal server error",
     });
   }
 });
@@ -108,6 +121,16 @@ router.post(
 router.put("/:id", async (req, res) => {
   try {
     const id = req.params.id;
+
+    // Validate ID parameter
+    if (!id || id === "undefined" || id === "null" || id.trim() === "") {
+      return res.status(400).json({
+        success: false,
+        message: "Category ID is required",
+        error: "Invalid or missing category ID",
+      });
+    }
+
     let category = null;
 
     // Try to parse as number first (categoryId)
@@ -147,7 +170,8 @@ router.put("/:id", async (req, res) => {
     if (!category) {
       return res.status(404).json({
         success: false,
-        message: "Category not found",
+        message: `Category with ID "${id}" not found`,
+        error: "Category does not exist",
       });
     }
 
@@ -156,9 +180,11 @@ router.put("/:id", async (req, res) => {
       data: category,
     });
   } catch (error) {
+    console.error("Update category error:", error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Failed to update category",
+      error: "Internal server error",
     });
   }
 });
@@ -169,6 +195,16 @@ router.put("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const id = req.params.id;
+
+    // Validate ID parameter
+    if (!id || id === "undefined" || id === "null" || id.trim() === "") {
+      return res.status(400).json({
+        success: false,
+        message: "Category ID is required",
+        error: "Invalid or missing category ID",
+      });
+    }
+
     let category = null;
 
     // Try to parse as number first (categoryId)
@@ -195,7 +231,8 @@ router.delete("/:id", async (req, res) => {
     if (!category) {
       return res.status(404).json({
         success: false,
-        message: "Category not found",
+        message: `Category with ID "${id}" not found`,
+        error: "Category does not exist or has already been deleted",
       });
     }
 
@@ -205,11 +242,18 @@ router.delete("/:id", async (req, res) => {
     res.json({
       success: true,
       message: "Category deleted successfully",
+      data: {
+        id: category._id,
+        categoryId: category.categoryId,
+        name: category.name,
+      },
     });
   } catch (error) {
+    console.error("Delete category error:", error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Failed to delete category",
+      error: "Internal server error",
     });
   }
 });
