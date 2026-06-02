@@ -48,6 +48,6 @@ const productSchema = new mongoose.Schema(
 );
 
 // Index for search
-productSchema.index({ name: "text", description: "text", tags: "text" });
+productSchema.index({ name: "text", description: "text" });
 
 export default mongoose.model("Product", productSchema);

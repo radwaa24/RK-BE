@@ -52,7 +52,8 @@ router.post('/register', [
         id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role
+        role: user.role,
+        permissions: user.permissions || []
       }
     });
   } catch (error) {
@@ -117,7 +118,8 @@ router.post('/login', [
         id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role
+        role: user.role,
+        permissions: user.permissions || []
       }
     });
   } catch (error) {

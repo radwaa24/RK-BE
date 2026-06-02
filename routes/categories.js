@@ -1,7 +1,7 @@
 import express from "express";
 import { body, validationResult } from "express-validator";
 import Category from "../models/Category.js";
-// import { protect, authorize } from '../middleware/auth.js';
+import { protect, requirePermission } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -90,6 +90,8 @@ router.get("/:id", async (req, res) => {
 // @access  Private/Admin
 router.post(
   "/",
+  protect,
+  requirePermission("categories.create"),
   [body("name").trim().notEmpty().withMessage("Category name is required")],
   async (req, res) => {
     try {
@@ -118,7 +120,7 @@ router.post(
 // @route   PUT /api/categories/:id
 // @desc    Update category
 // @access  Private/Admin
-router.put("/:id", async (req, res) => {
+router.put("/:id", protect, requirePermission("categories.edit"), async (req, res) => {
   try {
     const id = req.params.id;
 
@@ -192,7 +194,7 @@ router.put("/:id", async (req, res) => {
 // @route   DELETE /api/categories/:id
 // @desc    Delete category
 // @access  Private/Admin
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", protect, requirePermission("categories.delete"), async (req, res) => {
   try {
     const id = req.params.id;
 

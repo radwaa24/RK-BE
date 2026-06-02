@@ -23,8 +23,14 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['user', 'admin'],
-    default: 'user'
+    enum: ['owner', 'staff', 'customer'],
+    default: 'customer'
+  },
+  // Permission keys (see backend/config/permissions.js). Only meaningful for
+  // role 'staff'; 'owner' bypasses all checks and 'customer' has no admin access.
+  permissions: {
+    type: [String],
+    default: []
   },
   phone: {
     type: String,

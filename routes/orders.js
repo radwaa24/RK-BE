@@ -1,18 +1,21 @@
 import express from "express";
+import mongoose from "mongoose";
 import { body, validationResult } from "express-validator";
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 import Cart from "../models/Cart.js";
-// import {  authorize } from '../middleware/auth.js';
+import { protect, requirePermission } from "../middleware/auth.js";
+import { isStaff } from "../config/permissions.js";
 
 const router = express.Router();
 
 // @route   GET /api/orders
 // @desc    Get all orders (user's orders or all orders for admin)
 // @access  Private
-router.get("/", async (req, res) => {
+router.get("/", protect, requirePermission("orders.view"), async (req, res) => {
   try {
-    const filter = req.user.role === "admin" ? {} : { user: req.user._id };
+    // Staff with orders.view see all orders; anyone else only their own.
+    const filter = isStaff(req.user) ? {} : { user: req.user._id };
 
     const orders = await Order.find(filter)
       .populate("user", "name email")
@@ -35,7 +38,7 @@ router.get("/", async (req, res) => {
 // @route   GET /api/orders/:id
 // @desc    Get single order
 // @access  Private
-router.get("/:id", async (req, res) => {
+router.get("/:id", protect, requirePermission("orders.view"), async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
       .populate("user", "name email phone")
@@ -48,10 +51,10 @@ router.get("/:id", async (req, res) => {
       });
     }
 
-    // Check if user owns the order or is admin
+    // Staff can see any order; a customer can only see their own.
     if (
-      order.user._id.toString() !== req.user._id.toString() &&
-      req.user.role !== "admin"
+      !isStaff(req.user) &&
+      order.user._id.toString() !== req.user._id.toString()
     ) {
       return res.status(403).json({
         success: false,
@@ -76,6 +79,8 @@ router.get("/:id", async (req, res) => {
 // @access  Private
 router.post(
   "/",
+  protect,
+  requirePermission("orders.create"),
   [
     body("items")
       .isArray({ min: 1 })
@@ -111,55 +116,74 @@ router.post(
         shipping,
         discount,
         notes,
+        user: bodyUser,
+        paymentStatus,
       } = req.body;
 
-      // Validate products and calculate totals
-      const orderItems = [];
-      for (const item of items) {
-        const product = await Product.findById(item.product);
-        if (!product) {
-          return res.status(404).json({
-            success: false,
-            message: `Product ${item.product} not found`,
-          });
-        }
+      // Staff may place an order on behalf of a customer by passing `user`.
+      // Everyone else can only create orders for themselves.
+      const orderUser =
+        isStaff(req.user) && bodyUser ? bodyUser : req.user._id;
 
-        if (product.stock < item.quantity) {
-          return res.status(400).json({
-            success: false,
-            message: `Insufficient stock for ${product.name}`,
-          });
-        }
+      // Run stock validation, stock decrement, order creation and cart clearing
+      // inside ONE transaction so we never decrement stock for an order that
+      // fails to save (no more "ghost" stock reductions).
+      const session = await mongoose.startSession();
+      let orderId;
+      try {
+        await session.withTransaction(async () => {
+          const orderItems = [];
+          for (const item of items) {
+            const product = await Product.findById(item.product).session(session);
+            if (!product) {
+              const e = new Error(`Product ${item.product} not found`);
+              e.statusCode = 404;
+              throw e;
+            }
+            if (product.stock < item.quantity) {
+              const e = new Error(`Insufficient stock for ${product.name}`);
+              e.statusCode = 400;
+              throw e;
+            }
 
-        orderItems.push({
-          product: product._id,
-          name: product.name,
-          quantity: item.quantity,
-          price: product.price,
-          total: product.price * item.quantity,
+            orderItems.push({
+              product: product._id,
+              name: product.name,
+              quantity: item.quantity,
+              price: product.price,
+              total: product.price * item.quantity,
+            });
+
+            product.stock -= item.quantity;
+            await product.save({ session });
+          }
+
+          const created = await Order.create(
+            [
+              {
+                user: orderUser,
+                items: orderItems,
+                shippingAddress,
+                paymentMethod,
+                // Only staff may set payment status directly (e.g. mark paid).
+                ...(isStaff(req.user) && paymentStatus ? { paymentStatus } : {}),
+                tax: tax || 0,
+                shipping: shipping || 0,
+                discount: discount || 0,
+                notes,
+              },
+            ],
+            { session }
+          );
+
+          orderId = created[0]._id;
+          await Cart.findOneAndDelete({ user: orderUser }, { session });
         });
-
-        // Update product stock
-        product.stock -= item.quantity;
-        await product.save();
+      } finally {
+        await session.endSession();
       }
 
-      // Create order
-      const order = await Order.create({
-        user: req.user._id,
-        items: orderItems,
-        shippingAddress,
-        paymentMethod,
-        tax: tax || 0,
-        shipping: shipping || 0,
-        discount: discount || 0,
-        notes,
-      });
-
-      // Clear user's cart
-      await Cart.findOneAndDelete({ user: req.user._id });
-
-      const populatedOrder = await Order.findById(order._id)
+      const populatedOrder = await Order.findById(orderId)
         .populate("items.product", "name images")
         .populate("user", "name email");
 
@@ -168,7 +192,7 @@ router.post(
         data: populatedOrder,
       });
     } catch (error) {
-      res.status(500).json({
+      res.status(error.statusCode || 500).json({
         success: false,
         message: error.message,
       });
@@ -181,7 +205,8 @@ router.post(
 // @access  Private/Admin
 router.put(
   "/:id/status",
-
+  protect,
+  requirePermission("orders.edit"),
   [
     body("status")
       .isIn(["pending", "processing", "shipped", "delivered", "cancelled"])
@@ -228,7 +253,7 @@ router.put(
 // @route   DELETE /api/orders/:id
 // @desc    Cancel order (user) or delete order (admin)
 // @access  Private
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", protect, requirePermission("orders.delete"), async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
     if (!order) {
@@ -238,19 +263,8 @@ router.delete("/:id", async (req, res) => {
       });
     }
 
-    // Users can only cancel their own orders
-    if (
-      order.user.toString() !== req.user._id.toString() &&
-      req.user.role !== "admin"
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized",
-      });
-    }
-
-    // If user cancels, restore product stock
-    if (req.user.role !== "admin" && order.status !== "cancelled") {
+    // Restore stock for any order that wasn't already cancelled, then delete it.
+    if (order.status !== "cancelled") {
       for (const item of order.items) {
         const product = await Product.findById(item.product);
         if (product) {
@@ -258,16 +272,12 @@ router.delete("/:id", async (req, res) => {
           await product.save();
         }
       }
-      order.status = "cancelled";
-      await order.save();
-    } else if (req.user.role === "admin") {
-      // Admin can delete order
-      await order.deleteOne();
     }
+    await order.deleteOne();
 
     res.json({
       success: true,
-      message: "Order cancelled/deleted successfully",
+      message: "Order deleted successfully",
     });
   } catch (error) {
     res.status(500).json({

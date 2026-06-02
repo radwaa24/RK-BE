@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import { can, isStaff, isOwner } from '../config/permissions.js';
 
 export const protect = async (req, res, next) => {
   try {
@@ -64,5 +65,34 @@ export const authorize = (...roles) => {
     }
     next();
   };
+};
+
+// Require a specific permission key. Owner bypasses; staff need the key.
+export const requirePermission = (permission) => {
+  return (req, res, next) => {
+    if (can(req.user, permission)) return next();
+    return res.status(403).json({
+      success: false,
+      message: `Missing permission: ${permission}`
+    });
+  };
+};
+
+// Require any admin-panel staff (owner or staff role).
+export const requireStaff = (req, res, next) => {
+  if (isStaff(req.user)) return next();
+  return res.status(403).json({
+    success: false,
+    message: 'Staff access required'
+  });
+};
+
+// Require the owner specifically (e.g. creating/editing other owners).
+export const requireOwner = (req, res, next) => {
+  if (isOwner(req.user)) return next();
+  return res.status(403).json({
+    success: false,
+    message: 'Owner access required'
+  });
 };
 

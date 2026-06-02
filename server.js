@@ -11,6 +11,7 @@ import orderRoutes from "./routes/orders.js";
 import categoryRoutes from "./routes/categories.js";
 import cartRoutes from "./routes/cart.js";
 import userRoutes from "./routes/users.js";
+import permissionRoutes from "./routes/permissions.js";
 
 // Load environment variables
 dotenv.config();
@@ -19,9 +20,19 @@ const app = express();
 app.set("etag", false);
 
 // Middleware
+// FRONTEND_URL may be a single origin or a comma-separated list, so the same
+// API can serve local dev and one or more deployed frontends.
+const allowedOrigins = (process.env.FRONTEND_URL || "http://localhost:3000")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin(origin, callback) {
+      // Allow non-browser clients (no Origin header) and any listed origin.
+      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
     credentials: true,
   })
 );
@@ -44,6 +55,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/permissions", permissionRoutes);
 
 // Error handling middleware (must be last)
 app.use(errorHandler);

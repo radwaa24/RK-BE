@@ -1,7 +1,7 @@
 import express from "express";
 import { body, validationResult, query } from "express-validator";
 import Product from "../models/Product.js";
-// import { protect, authorize } from '../middleware/auth.js';
+import { protect, requirePermission } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -111,6 +111,8 @@ router.get("/:id", async (req, res) => {
 // @access  Private/Admin
 router.post(
   "/",
+  protect,
+  requirePermission("products.create"),
   [
     body("name").trim().notEmpty().withMessage("Product name is required"),
     body("description")
@@ -151,7 +153,7 @@ router.post(
 // @route   PUT /api/products/:id
 // @desc    Update product
 // @access  Private/Admin
-router.put("/:id", async (req, res) => {
+router.put("/:id", protect, requirePermission("products.edit"), async (req, res) => {
   try {
     const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
@@ -180,7 +182,7 @@ router.put("/:id", async (req, res) => {
 // @route   DELETE /api/products/:id
 // @desc    Delete product
 // @access  Private/Admin
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", protect, requirePermission("products.delete"), async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
 
