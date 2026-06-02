@@ -4,6 +4,9 @@
   "description": "E-commerce backend API with Node.js, Express, and MongoDB",
   "main": "server.js",
   "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
