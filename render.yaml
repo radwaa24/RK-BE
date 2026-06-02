@@ -1,0 +1,23 @@
+# Render Blueprint for the RK backend.
+# Render -> New -> Blueprint -> connect github.com/radwaa24/RK-BE.
+# Render reads this file; you only fill in the two secret env vars it asks for.
+services:
+  - type: web
+    name: rk-be
+    runtime: node
+    region: frankfurt # closest free region to Egypt — keep the DB here too
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_EXPIRE
+        value: 7d
+      - key: FRONTEND_URL
+        value: http://localhost:3000 # add your deployed frontend later, comma-separated
+      - key: MONGODB_URI
+        sync: false # secret — you paste it in the Render dashboard
+      - key: JWT_SECRET
+        sync: false # secret — generate a long random value
