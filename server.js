@@ -12,6 +12,7 @@ import categoryRoutes from "./routes/categories.js";
 import cartRoutes from "./routes/cart.js";
 import userRoutes from "./routes/users.js";
 import permissionRoutes from "./routes/permissions.js";
+import platformRoutes from "./routes/platform.js";
 
 // Load environment variables
 dotenv.config();
@@ -56,6 +57,7 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/permissions", permissionRoutes);
+app.use("/api/platform", platformRoutes);
 
 // Error handling middleware (must be last)
 app.use(errorHandler);

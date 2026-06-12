@@ -33,14 +33,14 @@ const run = async () => {
   let user = await User.findOne({ email }).select("+password");
   if (user) {
     user.name = name;
-    user.role = "owner";
+    user.role = "super_admin";
     user.isActive = true;
     user.password = password; // re-hashed by the pre('save') hook
     await user.save();
-    console.log(`Updated existing user "${email}" to owner.`);
+    console.log(`Updated existing user "${email}" to super_admin (platform owner).`);
   } else {
-    user = await User.create({ name, email, password, role: "owner" });
-    console.log(`Created owner user "${email}".`);
+    user = await User.create({ name, email, password, role: "super_admin" });
+    console.log(`Created super_admin user "${email}".`);
   }
 
   console.log("Login with:");

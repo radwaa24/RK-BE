@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
-import { can, isStaff, isOwner } from '../config/permissions.js';
+import { can, isStaff, isOwner, isSuperAdmin } from '../config/permissions.js';
 
 export const protect = async (req, res, next) => {
   try {
@@ -93,6 +93,15 @@ export const requireOwner = (req, res, next) => {
   return res.status(403).json({
     success: false,
     message: 'Owner access required'
+  });
+};
+
+// Require the platform (Hub) super admin — for managing client projects.
+export const requireSuperAdmin = (req, res, next) => {
+  if (isSuperAdmin(req.user)) return next();
+  return res.status(403).json({
+    success: false,
+    message: 'Platform admin access required'
   });
 };
 

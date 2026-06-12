@@ -68,7 +68,9 @@ export const PERMISSION_GROUPS = [
   },
 ];
 
-export const ROLES = ["owner", "staff", "customer"];
+// `super_admin` is the PLATFORM (Hub) role you hold to manage all client
+// projects. It is a superset of `owner` — it passes every tenant-level check too.
+export const ROLES = ["super_admin", "owner", "staff", "customer"];
 
 // Flat list of every valid permission key.
 export const ALL_PERMISSIONS = PERMISSION_GROUPS.flatMap((g) =>
@@ -102,10 +104,17 @@ export const PRESETS = [
   },
 ];
 
-export const isOwner = (user) => user?.role === "owner";
-export const isStaff = (user) => user?.role === "owner" || user?.role === "staff";
+// Platform (Hub) super admin — manages all client projects.
+export const isSuperAdmin = (user) => user?.role === "super_admin";
 
-// The core access check: owner can do anything; staff need the explicit key.
+// Owner (or super_admin, which is a superset) of a tenant app.
+export const isOwner = (user) =>
+  user?.role === "owner" || user?.role === "super_admin";
+
+export const isStaff = (user) =>
+  isOwner(user) || user?.role === "staff";
+
+// The core access check: owner/super_admin can do anything; staff need the key.
 export const can = (user, permission) =>
   isOwner(user) || (Array.isArray(user?.permissions) && user.permissions.includes(permission));
 
