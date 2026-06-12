@@ -1,8 +1,8 @@
 import express from "express";
-import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
 import { errorHandler } from "./middleware/errorHandler.js";
+import { connectDB } from "./config/db.js";
 
 // Import Routes
 import authRoutes from "./routes/auth.js";
@@ -69,30 +69,22 @@ app.use("/api/platform", platformRoutes);
 // Error handling middleware (must be last)
 app.use(errorHandler);
 
-// Connect to MongoDB
-const connectDB = async () => {
-  try {
-    if (!process.env.MONGODB_URI) {
-      throw new Error(
-        "MONGODB_URI is not defined in environment variables. Please create a .env file."
-      );
-    }
-    const conn = await mongoose.connect(process.env.MONGODB_URI);
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
-  } catch (error) {
-    console.error(`MongoDB Connection Error: ${error.message}`);
-    process.exit(1);
-  }
-};
-
-// Start server
-const PORT = process.env.PORT || 5000;
-
-connectDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
-  });
-});
+// Start a normal HTTP server only when NOT running on Vercel (serverless).
+// On Vercel, api/[...path].js imports this `app` and connects the DB per request.
+if (!process.env.VERCEL) {
+  const PORT = process.env.PORT || 5000;
+  connectDB()
+    .then(() => {
+      console.log("MongoDB Connected");
+      app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+        console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
+      });
+    })
+    .catch((error) => {
+      console.error(`MongoDB Connection Error: ${error.message}`);
+      process.exit(1);
+    });
+}
 
 export default app;
