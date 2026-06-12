@@ -27,12 +27,19 @@ const allowedOrigins = (process.env.FRONTEND_URL || "http://localhost:3000")
   .split(",")
   .map((o) => o.trim())
   .filter(Boolean);
+// Any localhost / 127.0.0.1 port is allowed (local dev shouldn't break when the
+// frontend picks a different port like 3001).
+const isLocalhost = (origin) =>
+  /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
 app.use(
   cors({
     origin(origin, callback) {
-      // Allow non-browser clients (no Origin header) and any listed origin.
-      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-      return callback(new Error(`Origin ${origin} not allowed by CORS`));
+      // Allow non-browser clients (no Origin), any listed origin, and localhost.
+      if (!origin || allowedOrigins.includes(origin) || isLocalhost(origin)) {
+        return callback(null, true);
+      }
+      // Reject cleanly (no CORS header) instead of throwing a 500.
+      return callback(null, false);
     },
     credentials: true,
   })
