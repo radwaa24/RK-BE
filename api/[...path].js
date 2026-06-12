@@ -9,17 +9,8 @@ export default async function handler(req, res) {
   } catch (err) {
     res.statusCode = 500;
     res.setHeader("Content-Type", "application/json");
-    // TEMP diagnostic: reveal the real cause (revert after debugging).
-    const uri = process.env.MONGODB_URI || "";
     return res.end(
-      JSON.stringify({
-        success: false,
-        message: "Database connection failed",
-        error: err.message,
-        hasMongoUri: !!uri,
-        uriHost: uri.split("@")[1]?.split("/")[0] || null,
-        hasJwtSecret: !!process.env.JWT_SECRET,
-      })
+      JSON.stringify({ success: false, message: "Database connection failed" })
     );
   }
   return app(req, res);
