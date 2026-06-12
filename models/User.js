@@ -23,7 +23,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['owner', 'staff', 'customer'],
+    enum: ['super_admin', 'owner', 'staff', 'customer'],
     default: 'customer'
   },
   // Permission keys (see backend/config/permissions.js). Only meaningful for
