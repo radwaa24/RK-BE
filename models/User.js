@@ -21,27 +21,11 @@ const userSchema = new mongoose.Schema({
     minlength: [6, 'Password must be at least 6 characters'],
     select: false
   },
+  // Hub users only: the platform owner (super_admin) and optional team members.
   role: {
     type: String,
-    enum: ['super_admin', 'owner', 'staff', 'customer'],
-    default: 'customer'
-  },
-  // Permission keys (see backend/config/permissions.js). Only meaningful for
-  // role 'staff'; 'owner' bypasses all checks and 'customer' has no admin access.
-  permissions: {
-    type: [String],
-    default: []
-  },
-  phone: {
-    type: String,
-    trim: true
-  },
-  address: {
-    street: String,
-    city: String,
-    state: String,
-    zipCode: String,
-    country: String
+    enum: ['super_admin', 'platform_staff'],
+    default: 'platform_staff'
   },
   isActive: {
     type: Boolean,

@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import Project from "../models/Project.js";
 import Plan from "../models/Plan.js";
 import Transaction from "../models/Transaction.js";
+import Invoice from "../models/Invoice.js";
 import { protect, requireSuperAdmin } from "../middleware/auth.js";
 import { apiKeyAuth } from "../middleware/apiKeyAuth.js";
 import { generateApiKey } from "../utils/apiKey.js";
@@ -204,15 +205,125 @@ router.delete("/projects/:id", async (req, res) => {
   res.json({ success: true, message: "Project deleted" });
 });
 
-/* ---- Transactions list ---- */
+/* ---- Transactions list (Sales feed) ---- */
 router.get("/transactions", async (req, res) => {
   const filter = {};
   if (req.query.project) filter.project = req.query.project;
+  if (req.query.from || req.query.to) {
+    filter.occurredAt = {};
+    if (req.query.from) filter.occurredAt.$gte = new Date(req.query.from);
+    if (req.query.to) filter.occurredAt.$lte = new Date(req.query.to);
+  }
+  const limit = Math.min(parseInt(req.query.limit) || 200, 500);
   const txns = await Transaction.find(filter)
     .populate("project", "name")
     .sort("-occurredAt")
-    .limit(200);
+    .limit(limit);
   res.json({ success: true, count: txns.length, data: txns });
+});
+
+/* ---- Billing / Invoices ----
+   An invoice for a client = subscription fee + commission on the sales they
+   reported during the period. */
+
+// Generate an invoice for a project over a period.
+router.post(
+  "/invoices/generate",
+  [
+    body("project").notEmpty().withMessage("project is required"),
+    body("periodStart").notEmpty().withMessage("periodStart is required"),
+    body("periodEnd").notEmpty().withMessage("periodEnd is required"),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty())
+      return res.status(400).json({ success: false, errors: errors.array() });
+    try {
+      const project = await Project.findById(req.body.project).populate("plan");
+      if (!project)
+        return res.status(404).json({ success: false, message: "Project not found" });
+
+      const periodStart = new Date(req.body.periodStart);
+      const periodEnd = new Date(req.body.periodEnd);
+
+      const [agg] = await Transaction.aggregate([
+        {
+          $match: {
+            project: new mongoose.Types.ObjectId(req.body.project),
+            occurredAt: { $gte: periodStart, $lte: periodEnd },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            salesTotal: { $sum: "$amount" },
+            commissionTotal: { $sum: "$commissionAmount" },
+          },
+        },
+      ]);
+
+      const subscriptionFee = project.plan?.price || 0;
+      const commissionTotal = +(agg?.commissionTotal || 0).toFixed(2);
+      const salesTotal = +(agg?.salesTotal || 0).toFixed(2);
+      const total = +(subscriptionFee + commissionTotal).toFixed(2);
+
+      const invoice = await Invoice.create({
+        project: project._id,
+        periodStart,
+        periodEnd,
+        subscriptionFee,
+        salesTotal,
+        commissionTotal,
+        total,
+        currency: project.plan?.currency || "EGP",
+        status: "draft",
+      });
+      res.status(201).json({ success: true, data: invoice });
+    } catch (e) {
+      res.status(500).json({ success: false, message: e.message });
+    }
+  }
+);
+
+router.get("/invoices", async (req, res) => {
+  const filter = {};
+  if (req.query.project) filter.project = req.query.project;
+  if (req.query.status) filter.status = req.query.status;
+  const invoices = await Invoice.find(filter)
+    .populate("project", "name")
+    .sort("-issuedAt");
+  res.json({ success: true, count: invoices.length, data: invoices });
+});
+
+router.get("/invoices/:id", async (req, res) => {
+  const invoice = await Invoice.findById(req.params.id).populate("project", "name contactEmail");
+  if (!invoice) return res.status(404).json({ success: false, message: "Invoice not found" });
+  res.json({ success: true, data: invoice });
+});
+
+// Update status (sent / paid / void). Marking paid stamps paidAt.
+router.put("/invoices/:id", async (req, res) => {
+  try {
+    const update = {};
+    if (req.body.status) {
+      if (!["draft", "sent", "paid", "void"].includes(req.body.status))
+        return res.status(400).json({ success: false, message: "Invalid status" });
+      update.status = req.body.status;
+      update.paidAt = req.body.status === "paid" ? new Date() : undefined;
+    }
+    const invoice = await Invoice.findByIdAndUpdate(req.params.id, update, {
+      new: true,
+    }).populate("project", "name");
+    if (!invoice) return res.status(404).json({ success: false, message: "Invoice not found" });
+    res.json({ success: true, data: invoice });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
+
+router.delete("/invoices/:id", async (req, res) => {
+  await Invoice.findByIdAndDelete(req.params.id);
+  res.json({ success: true, message: "Invoice deleted" });
 });
 
 /* ---- Platform dashboard stats ---- */

@@ -4,14 +4,8 @@ import cors from "cors";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { connectDB } from "./config/db.js";
 
-// Import Routes
+// Import Routes — RK is the Hub: only platform (Hub) + auth.
 import authRoutes from "./routes/auth.js";
-import productRoutes from "./routes/products.js";
-import orderRoutes from "./routes/orders.js";
-import categoryRoutes from "./routes/categories.js";
-import cartRoutes from "./routes/cart.js";
-import userRoutes from "./routes/users.js";
-import permissionRoutes from "./routes/permissions.js";
 import platformRoutes from "./routes/platform.js";
 
 // Load environment variables
@@ -51,19 +45,13 @@ app.use(express.urlencoded({ extended: true }));
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     status: "OK",
-    message: "RK E-commerce API is running",
+    message: "RK Hub API is running",
     timestamp: new Date().toISOString(),
   });
 });
 
 // API Routes
 app.use("/api/auth", authRoutes);
-app.use("/api/products", productRoutes);
-app.use("/api/orders", orderRoutes);
-app.use("/api/categories", categoryRoutes);
-app.use("/api/cart", cartRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/permissions", permissionRoutes);
 app.use("/api/platform", platformRoutes);
 
 // Error handling middleware (must be last)
